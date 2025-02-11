@@ -19,7 +19,7 @@ app.post("/signup", async (req, res) => {
     console.log("User saved:", user);
     res.send("User Added Successfully");
   } catch (error) {
-    res.status(500).send("Error adding user: " + error.message);
+    throw new Error("Error adding user: " + error.message);
   }
 });
 
@@ -33,18 +33,18 @@ app.get("/user", async (req, res) => {
     }
     res.json(user);
   } catch (err) {
-    res.status(400).send("Something went wrong");
+    throw new Error("Something went wrong");
   }
 });
 
 // Delete User API
-app.delete("/user", async (req, res) => {
-  const userId = req.body.userId;
+app.delete("/user/:userId", async (req, res) => {
+  const userId = req.params.userId;
   try {
     await User.findByIdAndDelete(userId);
     res.send("User Deleted Successfully");
   } catch (err) {
-    res.status(400).send("Something went wrong");
+    throw new Error("Something went wrong");
   }
 });
 
@@ -54,13 +54,13 @@ app.get("/feed", async (req, res) => {
     const users = await User.find();
     res.json(users);
   } catch (err) {
-    res.status(500).send("Error fetching users");
+    throw new Error("Error fetching users");
   }
 });
 
 // Update User API (PATCH)
-app.patch("/user", async (req, res) => {
-  const userId = req.body.userId;
+app.patch("/user/:userId", async (req, res) => {
+  const userId = req.params.userId;
   const updateData = req.body;
   try {
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
@@ -69,7 +69,7 @@ app.patch("/user", async (req, res) => {
     }
     res.json(updatedUser);
   } catch (err) {
-    res.status(400).send("Something went wrong");
+    throw new Error("Something went wrong");
   }
 });
 
@@ -82,5 +82,5 @@ connectDb()
     });
   })
   .catch((err) => {
-    console.log("Database cannot be connected", err);
+    throw new Error("Database cannot be connected: " + err);
   });
