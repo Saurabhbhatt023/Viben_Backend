@@ -1,9 +1,12 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const User = require("./models/user");
-
+const { validateSignUpData } = require("./utils/validation");
+const bcrypt = require("bcrypt");
 const app = express();
+
 app.use(express.json()); // To parse incoming JSON data
+  
 
 const connectDb = async () => {
   await mongoose.connect(
@@ -13,13 +16,24 @@ const connectDb = async () => {
 
 // Signup API
 app.post("/signup", async (req, res) => {
-  const user = new User(req.body);
   try {
+    validateSignUpData(req); // Validate input data
+
+    const { firstName, lastName, emailId, password } = req.body;
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const user = new User({
+      firstName,
+      lastName,
+      emailId,
+      password: passwordHash,
+    });
+
     await user.save();
     console.log("User saved:", user);
     res.send("User Added Successfully");
   } catch (error) {
-    throw new Error("Error adding user: " + error.message);
+    res.status(400).send("Error adding user: " + error.message);
   }
 });
 
@@ -33,7 +47,7 @@ app.get("/user", async (req, res) => {
     }
     res.json(user);
   } catch (err) {
-    throw new Error("Something went wrong");
+    res.status(500).send("Something went wrong");
   }
 });
 
@@ -44,7 +58,7 @@ app.delete("/user/:userId", async (req, res) => {
     await User.findByIdAndDelete(userId);
     res.send("User Deleted Successfully");
   } catch (err) {
-    throw new Error("Something went wrong");
+    res.status(500).send("Something went wrong");
   }
 });
 
@@ -54,7 +68,7 @@ app.get("/feed", async (req, res) => {
     const users = await User.find();
     res.json(users);
   } catch (err) {
-    throw new Error("Error fetching users");
+    res.status(500).send("Error fetching users");
   }
 });
 
@@ -69,7 +83,7 @@ app.patch("/user/:userId", async (req, res) => {
     }
     res.json(updatedUser);
   } catch (err) {
-    throw new Error("Something went wrong");
+    res.status(500).send("Something went wrong");
   }
 });
 
@@ -82,5 +96,5 @@ connectDb()
     });
   })
   .catch((err) => {
-    throw new Error("Database cannot be connected: " + err);
+    console.error("Database cannot be connected: " + err);
   });
