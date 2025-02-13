@@ -6,7 +6,6 @@ const bcrypt = require("bcrypt");
 const app = express();
 
 app.use(express.json()); // To parse incoming JSON data
-  
 
 const connectDb = async () => {
   await mongoose.connect(
@@ -34,6 +33,27 @@ app.post("/signup", async (req, res) => {
     res.send("User Added Successfully");
   } catch (error) {
     res.status(400).send("Error adding user: " + error.message);
+  }
+});
+
+// Login API
+app.post("/login", async (req, res) => {
+  try {
+    const { emailId, password } = req.body;
+    const user = await User.findOne({ emailId });
+
+    if (!user) {
+      return res.status(404).send("User not found");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).send("Invalid credentials");
+    }
+
+    res.send("Login Successful");
+  } catch (error) {
+    res.status(500).send("Something went wrong");
   }
 });
 

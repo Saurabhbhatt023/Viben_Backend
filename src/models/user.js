@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       validate: {
         validator: function (value) {
-          return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value); 
+          return validator.isEmail(value); // Fixed email validation using validator.js
         },
         message: (props) => `Invalid Email Address: ${props.value}`,
       }
@@ -46,6 +46,12 @@ const userSchema = new mongoose.Schema(
     photoUrl: {
       type: String,
       default: "https://example.com/default-user.png",
+      validate: {
+        validator: function (value) {
+          return validator.isURL(value); // Fixed URL validation using validator.js
+        },
+        message: (props) => `Invalid URL: ${props.value}`,
+      },
     },
     about: {
       type: String,
