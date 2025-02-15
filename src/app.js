@@ -48,9 +48,14 @@ app.post("/login", async (req, res) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+
+
+      
+      
       return res.status(401).send("Invalid credentials");
     }
 
+    res.cookie("token",  "skjdhfkjhdjkf");
     res.send("Login Successful");
   } catch (error) {
     res.status(500).send("Something went wrong");
