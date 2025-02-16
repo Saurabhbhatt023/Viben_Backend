@@ -3,20 +3,31 @@ const mongoose = require("mongoose");
 const User = require("./models/user");
 const { validateSignUpData } = require("./utils/validation");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
+const cors = require("cors");
+
 const app = express();
 
-app.use(express.json()); // To parse incoming JSON data
+// Middleware
+app.use(express.json()); // Parse JSON request body
+app.use(cookieParser());
+app.use(cors({ origin: "http://localhost:3000", credentials: true })); // Allow frontend requests
 
+// Database Connection
 const connectDb = async () => {
-  await mongoose.connect(
-    "mongodb+srv://saurabhbhatt1211:8aMeDjuWoXHJl1kS@cluster023.k38ng.mongodb.net/Devtinder?tls=true"
-  );
+  try {
+    await mongoose.connect("mongodb+srv://saurabhbhatt1211:8aMeDjuWoXHJl1kS@cluster023.k38ng.mongodb.net/Devtinder?tls=true");
+    console.log("Database connected successfully");
+  } catch (err) {
+    console.error("Database connection failed:", err);
+  }
 };
 
 // Signup API
 app.post("/signup", async (req, res) => {
   try {
-    validateSignUpData(req); // Validate input data
+    validateSignUpData(req);
 
     const { firstName, lastName, emailId, password } = req.body;
     const passwordHash = await bcrypt.hash(password, 10);
@@ -48,23 +59,60 @@ app.post("/login", async (req, res) => {
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-
-
-      
-      
       return res.status(401).send("Invalid credentials");
     }
 
-    res.cookie("token",  "skjdhfkjhdjkf");
-    res.send("Login Successful");
+    // Generate JWT Token with expiry
+    const token = jwt.sign({ _id: user._id }, "Dev@Tinder", { expiresIn: "1h" });
+    console.log("Generated Token:", token);
+
+    // Set Cookie Properly
+    res.cookie("token", token, {
+      httpOnly: true,  // Prevents JavaScript access
+      secure: false,   // Set to 'true' in production (HTTPS required)
+      sameSite: "Strict",
+      maxAge: 60 * 60 * 1000 // 1 hour
+    });
+
+    res.json({ message: "Login Successful" });
   } catch (error) {
+    console.error("Login Error:", error);
     res.status(500).send("Something went wrong");
   }
 });
 
+
+// Profile API - Read Cookie
+app.get("/profile", async (req, res) => {
+  try {
+    const { token } = req.cookies;
+
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized: Token missing" });
+    }
+
+    // Verify the token
+    const decodedMessage = jwt.verify(token, "Dev@Tinder");
+    const { _id } = decodedMessage;
+
+    console.log("Logged in user ID:", _id);
+
+    // Fetch the user from the database
+    const user = await User.findById(_id);
+    if (!user) {
+      return res.status(404).json({ message: "User does not exist" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Something went wrong" });
+  }
+});
+
+
 // Get User API (by emailId)
 app.get("/user", async (req, res) => {
-  const useremailId = req.query.emailId; // Use query params instead of body
+  const useremailId = req.query.emailId;
   try {
     const user = await User.find({ emailId: useremailId });
     if (user.length === 0) {
@@ -113,13 +161,8 @@ app.patch("/user/:userId", async (req, res) => {
 });
 
 // Connect to Database and Start Server
-connectDb()
-  .then(() => {
-    console.log("Database is established");
-    app.listen(7777, () => {
-      console.log(`Server is running on http://localhost:7777`);
-    });
-  })
-  .catch((err) => {
-    console.error("Database cannot be connected: " + err);
+connectDb().then(() => {
+  app.listen(7777, () => {
+    console.log("Server is running on http://localhost:7777");
   });
+});
