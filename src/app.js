@@ -6,6 +6,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const { auth } = require("./middlewares/auth");  // Change this line at the top of your file
 
 const app = express();
 
@@ -83,22 +84,15 @@ app.post("/login", async (req, res) => {
 
 
 // Profile API - Read Cookie
-app.get("/profile", async (req, res) => {
+app.get("/profile", auth , async (req, res) => {
   try {
-    const { token } = req.cookies;
-
-    if (!token) {
-      return res.status(401).json({ message: "Unauthorized: Token missing" });
-    }
+    
 
     // Verify the token
-    const decodedMessage = jwt.verify(token, "Dev@Tinder");
-    const { _id } = decodedMessage;
-
-    console.log("Logged in user ID:", _id);
+   
 
     // Fetch the user from the database
-    const user = await User.findById(_id);
+    const user = req.user
     if (!user) {
       return res.status(404).json({ message: "User does not exist" });
     }
