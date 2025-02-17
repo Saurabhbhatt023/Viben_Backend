@@ -6,19 +6,23 @@ const auth = async (req, res, next) => {
         const { token } = req.cookies;
         
         if (!token) {
-            throw new Error("Token is not valid!");
+            return res.status(401).send("Token not found");  // Changed error message for clarity
         }
         
-        const decodeObj = await jwt.verify(token, "Dev@Tinder");
-        const { _id } = decodeObj;
-        const user = await User.findById(_id);
-        
-        if (!user) {
-            throw new Error("User not found");
+        try {
+            const decodeObj = await jwt.verify(token, "Dev@Tinder");
+            const { _id } = decodeObj;
+            const user = await User.findById(_id);
+            
+            if (!user) {
+                return res.status(404).send("User not found");
+            }
+            
+            req.user = user;
+            next();
+        } catch (jwtError) {
+            return res.status(401).send("Invalid token");  // Specific error for invalid tokens
         }
-        
-        req.user = user;
-        next();
     } catch (err) {
         res.status(400).send("Error: " + err.message);
     }

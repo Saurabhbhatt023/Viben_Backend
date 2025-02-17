@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
+const jwt = require("jsonwebtoken");
+const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema(
   {
@@ -12,11 +14,11 @@ const userSchema = new mongoose.Schema(
     },
     emailId: {
       type: String,
-      required: true, 
+      required: true,
       lowercase: true,
       validate: {
         validator: function (value) {
-          return validator.isEmail(value); // Fixed email validation using validator.js
+          return validator.isEmail(value);
         },
         message: (props) => `Invalid Email Address: ${props.value}`,
       }
@@ -48,7 +50,7 @@ const userSchema = new mongoose.Schema(
       default: "https://example.com/default-user.png",
       validate: {
         validator: function (value) {
-          return validator.isURL(value); // Fixed URL validation using validator.js
+          return validator.isURL(value);
         },
         message: (props) => `Invalid URL: ${props.value}`,
       },
@@ -59,5 +61,18 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.methods.getJWT = async function () {  // Changed from method to methods
+  const user = this;
+  const token = await jwt.sign({ _id: user._id }, "Dev@Tinder", { expiresIn: "1d" });
+  return token;
+}
+
+userSchema.methods.validatePassword = async function (passwordInputByUser) {
+  const user = this;
+  const passwordHash = user.password;
+  const isPasswordValid = await bcrypt.compare(passwordInputByUser, passwordHash);
+  return isPasswordValid;
+}
 
 module.exports = mongoose.model("User", userSchema);
