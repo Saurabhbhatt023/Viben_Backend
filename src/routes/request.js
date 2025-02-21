@@ -1,11 +1,10 @@
-// routes/request.js
 const express = require("express");
 const requestRouter = express.Router();
 const { auth } = require("../middlewares/auth");
-const ConnectionRequest = require("../models/ConnectionRequest");
+const ConnectionRequest = require("../models/connectionRequest");
 const User = require("../models/user");
 
-// Send connection request
+// Send connection request with status parameter
 requestRouter.post("/request/send/:status/:toUserId", auth, async (req, res) => {
   try {
     const fromUserId = req.user._id;
@@ -13,11 +12,10 @@ requestRouter.post("/request/send/:status/:toUserId", auth, async (req, res) => 
     const status = req.params.status.toLowerCase();
 
     // Validate status
-    const allowedStatuses = ["ignored", "interested"];
-    if (!allowedStatuses.includes(status)) {
+    if (!["interested", "ignored"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid status type: ${status}. Allowed values are: ${allowedStatuses.join(", ")}`
+        message: "Status must be either 'interested' or 'ignored'"
       });
     }
 
@@ -26,11 +24,19 @@ requestRouter.post("/request/send/:status/:toUserId", auth, async (req, res) => 
     if (!toUser) {
       return res.status(404).json({
         success: false,
-        message: "Target user not found"
+        message: "User not found"
       });
     }
 
-    // Check for existing request using compound index
+    // Check if sender and receiver are the same
+    if (fromUserId.toString() === toUserId) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot send a request to yourself"
+      });
+    }
+
+    // Check if request already exists
     const existingRequest = await ConnectionRequest.findOne({
       fromUserId,
       toUserId
@@ -39,28 +45,27 @@ requestRouter.post("/request/send/:status/:toUserId", auth, async (req, res) => 
     if (existingRequest) {
       return res.status(400).json({
         success: false,
-        message: `Connection request already exists with status: ${existingRequest.status}`
+        message: "You have already sent a request to this user"
       });
     }
 
-    // Create new connection request
+    // Create new request
     const connectionRequest = new ConnectionRequest({
       fromUserId,
       toUserId,
-      status,
+      status
     });
 
-    const savedRequest = await connectionRequest.save();
-    const statusMessage = await savedRequest.generateStatusMessage();
+    await connectionRequest.save();
 
     res.status(201).json({
       success: true,
-      message: statusMessage,
-      data: savedRequest
+      message: `Request sent successfully with status: ${status}`,
+      data: connectionRequest
     });
 
   } catch (err) {
-    console.error("Send request error:", err);
+    console.error('Error in sending request:', err);
     res.status(500).json({
       success: false,
       message: err.message
@@ -68,88 +73,51 @@ requestRouter.post("/request/send/:status/:toUserId", auth, async (req, res) => 
   }
 });
 
-// Get received requests with pagination and filtering
-requestRouter.get("/requests/received", auth, async (req, res) => {
+// Review (accept/reject) a received request
+requestRouter.post("/request/review/:status/:requestId", auth, async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const status = req.query.status;
-
-    // Build query
-    const query = { toUserId: req.user._id };
-    if (status) {
-      query.status = status;
-    }
-
-    const requests = await ConnectionRequest.find(query)
-      .populate("fromUserId", "firstName lastName photoUrl")
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    const total = await ConnectionRequest.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: requests,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalRequests: total
-      }
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
-  }
-});
-
-// Update request status
-requestRouter.patch("/request/:requestId", auth, async (req, res) => {
-  try {
-    const { status } = req.body;
-    const requestId = req.params.requestId;
+    const loggedInUser = req.user;
+    const { status, requestId } = req.params;
 
     // Validate status
-    const allowedStatuses = ["accepted", "rejected", "ignored"];
-    if (!allowedStatuses.includes(status)) {
+    if (!["accepted", "rejected"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid status. Allowed values are: ${allowedStatuses.join(", ")}`
+        message: "Status must be either 'accepted' or 'rejected'"
       });
     }
 
-    // Find and update request
-    const request = await ConnectionRequest.findById(requestId);
+    // Find the request
+    const request = await ConnectionRequest.findOne({
+      _id: requestId,
+      toUserId: loggedInUser._id,
+      status: "interested"  // Only update pending requests
+    });
+
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Request not found"
+        message: "Request not found or already processed"
       });
     }
 
-    // Verify request belongs to current user
-    if (!request.toUserId.equals(req.user._id)) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to update this request"
-      });
-    }
-
+    // Update request status
     request.status = status;
     await request.save();
 
-    // Generate status message
-    const statusMessage = await request.generateStatusMessage();
+    // If accepted, populate user details for response
+    if (status === "accepted") {
+      await request.populate('fromUserId', 'firstName lastName photoUrl about skills age gender');
+    }
 
     res.json({
       success: true,
-      message: statusMessage,
+      message: `Request ${status} successfully`,
       data: request
     });
+
   } catch (err) {
+    console.error('Error in reviewing request:', err);
     res.status(500).json({
       success: false,
       message: err.message

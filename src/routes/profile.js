@@ -22,6 +22,22 @@ profileRouter.get("/profile", auth, async (req, res) => {
   }
 });
 
+// Get profile/view (same as /profile but with a different endpoint)
+profileRouter.get("/profile/view", auth, async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      data: req.user
+    });
+  } catch (error) {
+    console.error("Profile view error:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Error retrieving profile" 
+    });
+  }
+});
+
 // Get user profile by ID
 profileRouter.get("/profile/:userId", auth, async (req, res) => {
   try {
@@ -51,7 +67,7 @@ profileRouter.get("/profile/:userId", auth, async (req, res) => {
 profileRouter.patch("/profile/update", auth, async (req, res) => {
   try {
     const updateFields = {};
-    const allowedFields = ["firstName", "lastName", "gender", "age", "photoUrl", "about"];
+    const allowedFields = ["firstName", "lastName", "gender", "age", "photoUrl", "about", "skills"];
     
     // Filter only allowed fields
     allowedFields.forEach(field => {
