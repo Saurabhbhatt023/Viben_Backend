@@ -4,6 +4,8 @@ const ConnectionRequest = require('../models/connectionRequest');
 const User = require("../models/user");
 const userRouter = express.Router();
 
+const USER_SAFE_DATA = "firstName lastName photoUrl age gender about skills";
+
 // Get all connections and requests
 userRouter.get("/user/connections", auth, async (req, res) => {
   try {
@@ -15,7 +17,7 @@ userRouter.get("/user/connections", auth, async (req, res) => {
         { fromUserId: loggedInUser._id },
         { toUserId: loggedInUser._id }
       ]
-    }).populate('fromUserId toUserId', 'firstName lastName photoUrl about skills age gender');
+    }).populate('fromUserId toUserId', USER_SAFE_DATA);
 
     // Process and format the connections
     const formattedConnections = await Promise.all(allConnections.map(async (connection) => {
@@ -23,22 +25,18 @@ userRouter.get("/user/connections", auth, async (req, res) => {
       const isSender = connection.fromUserId._id.toString() === loggedInUser._id.toString();
       const otherUser = isSender ? connection.toUserId : connection.fromUserId;
 
-      // Get full user data
-      const userData = await User.findById(otherUser._id)
-        .select('firstName lastName photoUrl about skills age gender');
-
       return {
-        _id: userData._id,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        photoUrl: userData.photoUrl || "https://geographyandyou.com/images/user-profile.png",
-        about: userData.about || "This is a default about of the user!",
-        skills: userData.skills || [],
-        age: userData.age || null,
-        gender: userData.gender || null,
+        _id: otherUser._id,
+        firstName: otherUser.firstName,
+        lastName: otherUser.lastName,
+        photoUrl: otherUser.photoUrl || "https://geographyandyou.com/images/user-profile.png",
+        about: otherUser.about || "This is a default about of the user!",
+        skills: otherUser.skills || [],
+        age: otherUser.age || null,
+        gender: otherUser.gender || null,
         connectionId: connection._id,
         status: connection.status,
-        isSender: isSender,
+        isSender,
         createdAt: connection.createdAt,
         updatedAt: connection.updatedAt
       };
@@ -74,7 +72,7 @@ userRouter.get("/user/requests/received", auth, async (req, res) => {
     const requests = await ConnectionRequest.find({
       toUserId: loggedInUser._id,
       status: "interested"  // Only show pending requests
-    }).populate('fromUserId', 'firstName lastName photoUrl about skills age gender');
+    }).populate('fromUserId', USER_SAFE_DATA);
 
     const formattedRequests = requests.map(request => ({
       _id: request._id,
@@ -103,6 +101,46 @@ userRouter.get("/user/requests/received", auth, async (req, res) => {
       success: false,
       message: err.message
     });
+  }
+});
+
+userRouter.get("/feed", auth, async (req, res) => {
+  try {
+    const loggedInUser = req.user;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Fetch connection requests involving the logged-in user
+    const connections = await ConnectionRequest.find({
+      $or: [{ fromUserId: loggedInUser._id }, { toUserId: loggedInUser._id }]
+    }).select("fromUserId toUserId");
+
+    // Create a set of users to hide from the feed
+    const hideUserFromFeed = new Set();
+    connections.forEach((req) => {
+      hideUserFromFeed.add(req.fromUserId.toString());
+      hideUserFromFeed.add(req.toUserId.toString());
+    });
+
+    // Exclude connected users and the logged-in user from the feed
+    hideUserFromFeed.add(loggedInUser._id.toString());
+
+    // Fetch users who are not in the connections list
+    const users = await User.find({
+      _id: { $nin: Array.from(hideUserFromFeed) }
+    })
+      .select(USER_SAFE_DATA)
+      .skip(skip)
+      .limit(limit);
+
+    res.json({
+      success: true,
+      data: users
+    });
+
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
   }
 });
 
