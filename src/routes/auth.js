@@ -4,6 +4,7 @@ const authRouter = express.Router();
 const User = require("../models/user");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const user = require('../models/user');
 
 authRouter.post("/signup", async (req, res) => {
    try {
@@ -51,7 +52,7 @@ authRouter.post("/login", async (req, res) => {
            maxAge: 60 * 60 * 1000
        });
 
-       res.json({ message: "Login Successful" });
+       res.send(user);
    } catch (error) {
        console.error("Login Error:", error);
        res.status(500).send("Something went wrong");
@@ -65,7 +66,7 @@ authRouter.post("/logout", async (req, res) => {
            secure: false,
            expires: new Date(Date.now())
        });
-       res.send("Logout Successful!");
+       res.send(user);
    } catch (error) {
        res.status(500).send("Logout failed");
    }
