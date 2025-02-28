@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       lowercase: true,
+      unique: true,
       validate: {
         validator: function (value) {
           return validator.isEmail(value);
@@ -41,13 +42,15 @@ const userSchema = new mongoose.Schema(
     },
     age: {
       type: Number,
+      min: 18, // Ensuring users are at least 18 years old
     },
     gender: {
       type: String,
+      enum: ["Male", "Female", "Other"], // Restricting to predefined values
     },
     photoUrl: {
       type: String,
-      default: "https://example.com/default-user.png",
+      // Removed default value so it doesn't override user-set values
       validate: {
         validator: function (value) {
           return validator.isURL(value);
@@ -57,15 +60,57 @@ const userSchema = new mongoose.Schema(
     },
     about: {
       type: String,
+      maxlength: 500, // Limiting bio length
     },
+    // Rest of the schema remains the same
     skills: {
       type: [String],
       default: []
+    },
+    location: {
+      type: String,
+    },
+    relationshipStatus: {
+      type: String,
+      enum: ["Single", "In a Relationship", "Married", "Divorced", "Complicated"],
+    },
+    hobbies: {
+      type: [String],
+      default: [],
+    },
+    phoneNumber: {
+      type: String,
+      validate: {
+        validator: function (value) {
+          return validator.isMobilePhone(value, "any", { strictMode: false });
+        },
+        message: (props) => `Invalid Phone Number: ${props.value}`,
+      },
+    },
+    socialLinks: {
+      type: [String],
+      validate: {
+        validator: function (links) {
+          return links.every(link => validator.isURL(link));
+        },
+        message: "One or more social links are invalid.",
+      },
+      default: [],
+    },
+    likes: {
+      type: Number,
+      default: 0, // Tracking likes on user profile
+    },
+    matches: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "User",
+      default: [], // Storing user IDs of matches
     },
   },
   { timestamps: true }
 );
 
+// Methods remain the same
 userSchema.methods.getJWT = async function () {
   const user = this;
   const token = await jwt.sign({ _id: user._id }, "Dev@Tinder", { expiresIn: "1d" });

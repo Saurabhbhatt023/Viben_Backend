@@ -6,7 +6,7 @@ const auth = async (req, res, next) => {
         const { token } = req.cookies;
         
         if (!token) {
-            return res.status(401).send("Token not found");  // Changed error message for clarity
+            return res.status(401).send("Please login");  // Changed error message for clarity
         }
         
         try {

@@ -10,21 +10,61 @@ authRouter.post("/signup", async (req, res) => {
    try {
        validateSignUpData(req);
 
-       const { firstName, lastName, emailId, password } = req.body;
+       const { 
+           firstName, 
+           lastName, 
+           emailId, 
+           password,
+           age,
+           gender,
+           photoUrl,
+           about,
+           skills,
+           location,
+           relationshipStatus,
+           hobbies,
+           phoneNumber,
+           socialLinks
+       } = req.body;
+       
        const passwordHash = await bcrypt.hash(password, 10);
 
+       // Create user with all available fields
        const user = new User({
            firstName,
            lastName,
            emailId,
            password: passwordHash,
+           age,
+           gender,
+           photoUrl,
+           about,
+           skills: skills || [],
+           location,
+           relationshipStatus,
+           hobbies: hobbies || [],
+           phoneNumber,
+           socialLinks: socialLinks || []
        });
 
        await user.save();
        console.log("User saved:", user);
-       res.send("User Added Successfully");
+       res.status(201).json({
+           success: true,
+           message: "User Added Successfully",
+           data: {
+               _id: user._id,
+               firstName: user.firstName,
+               lastName: user.lastName,
+               emailId: user.emailId
+           }
+       });
    } catch (error) {
-       res.status(400).send("Error adding user: " + error.message);
+       console.error("Signup error:", error);
+       res.status(400).json({
+           success: false,
+           message: "Error adding user: " + error.message
+       });
    }
 });
 
@@ -34,12 +74,18 @@ authRouter.post("/login", async (req, res) => {
        const user = await User.findOne({ emailId });
 
        if (!user) {
-           return res.status(404).send("User not found");
+           return res.status(404).json({
+               success: false,
+               message: "User not found"
+           });
        }
 
        const isPasswordValid = await user.validatePassword(password)
        if (!isPasswordValid) {
-           return res.status(401).send("Invalid credentials");
+           return res.status(401).json({
+               success: false,
+               message: "Invalid credentials"
+           });
        }
 
        const token = await user.getJWT();
@@ -52,10 +98,16 @@ authRouter.post("/login", async (req, res) => {
            maxAge: 60 * 60 * 1000
        });
 
-       res.send(user);
+       res.json({
+           success: true, 
+           data: user
+       });
    } catch (error) {
        console.error("Login Error:", error);
-       res.status(500).send("Something went wrong");
+       res.status(500).json({
+           success: false, 
+           message: "Something went wrong"
+       });
    }
 });
 
@@ -66,9 +118,15 @@ authRouter.post("/logout", async (req, res) => {
            secure: false,
            expires: new Date(Date.now())
        });
-       res.send(user);
+       res.json({
+           success: true,
+           message: "Logged out successfully"
+       });
    } catch (error) {
-       res.status(500).send("Logout failed");
+       res.status(500).json({
+           success: false,
+           message: "Logout failed"
+       });
    }
 }); 
 
