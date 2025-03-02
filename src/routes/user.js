@@ -12,7 +12,7 @@ userRouter.get("/user/connections", auth, async (req, res) => {
     const loggedInUser = req.user;
 
     // Find all connections where user is either sender or receiver
-    const allConnectsions = await ConnectionRequest.find({
+    const allConnections = await ConnectionRequest.find({
       $or: [
         { fromUserId: loggedInUser._id },
         { toUserId: loggedInUser._id }
