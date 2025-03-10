@@ -27,7 +27,7 @@ app.use("/", userRouter);
 // Database Connection
 const connectDb = async () => {
   try {
-    await mongoose.connect("mongodb+srv://saurabhbhatt1211:8aMeDjuWoXHJl1kS@cluster023.k38ng.mongodb.net/Devtinder?retryWrites=true&w=majority");
+    await mongoose.connect("mongodb+srv://saurabhbhatt1211:UJVlrnuYZ6bTAnjy@cluster023.k38ng.mongodb.net/Devtinder?retryWrites=true&w=majority");
     console.log("Database connected successfully");
   } catch (err) {
     console.error("Database connection failed:", err);
