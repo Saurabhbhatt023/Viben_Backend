@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+require('dotenv').config()
 
 const app = express();
 
@@ -27,7 +28,7 @@ app.use("/", userRouter);
 // Database Connection
 const connectDb = async () => {
   try {
-    await mongoose.connect("mongodb+srv://saurabhbhatt1211:8aMeDjuWoXHJl1kS@cluster023.k38ng.mongodb.net/Devtinder?retryWrites=true&w=majority");
+    await mongoose.connect(process.env.DB_CONNECTION_SECRET);
     console.log("Database connected successfully");
   } catch (err) {
     console.error("Database connection failed:", err);
@@ -36,7 +37,7 @@ const connectDb = async () => {
 
 // Connect to Database and Start Server
 connectDb().then(() => {
-  app.listen(7777, () => {
+  app.listen(process.env.PORT, () => {
     console.log("Server is running on http://localhost:7777");
   });
 });
