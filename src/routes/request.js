@@ -3,6 +3,7 @@ const requestRouter = express.Router();
 const { auth } = require("../middlewares/auth");
 const ConnectionRequest = require("../models/connectionRequest");
 const User = require("../models/user");
+const sendEmail = require("../utils/sendEmail");
 
 // Send connection request with status parameter
 requestRouter.post("/request/send/:status/:toUserId", auth, async (req, res) => {
@@ -57,6 +58,18 @@ requestRouter.post("/request/send/:status/:toUserId", auth, async (req, res) => 
     });
 
     await connectionRequest.save();
+    
+    // Send email notification with dynamic content
+    const subject = "New Connection Request";
+    const body = `${req.user.firstName} ${req.user.lastName} has sent you a connection request with status: ${status}`;
+    
+    try {
+      const emailRes = await sendEmail.run(subject, body);
+      console.log("Email sent:", emailRes);
+    } catch (emailError) {
+      console.error("Failed to send email:", emailError);
+      // Continue with the request even if email fails
+    }
 
     res.status(201).json({
       success: true,
@@ -92,7 +105,7 @@ requestRouter.post("/request/review/:status/:requestId", auth, async (req, res) 
       _id: requestId,
       toUserId: loggedInUser._id,
       status: "interested"  // Only update pending requests
-    });
+    }).populate('fromUserId', 'firstName lastName emailId');
 
     if (!request) {
       return res.status(404).json({
@@ -104,6 +117,18 @@ requestRouter.post("/request/review/:status/:requestId", auth, async (req, res) 
     // Update request status
     request.status = status;
     await request.save();
+    
+    // Send email notification about the request status update
+    try {
+      const subject = `Connection Request ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+      const body = `${loggedInUser.firstName} ${loggedInUser.lastName} has ${status} your connection request`;
+      
+      const emailRes = await sendEmail.run(subject, body);
+      console.log("Status update email sent:", emailRes);
+    } catch (emailError) {
+      console.error("Failed to send status update email:", emailError);
+      // Continue with the response even if email fails
+    }
 
     // If accepted, populate user details for response
     if (status === "accepted") {
