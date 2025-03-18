@@ -8,22 +8,21 @@ require("dotenv").config();
 const app = express();
 
 // Updated CORS to include both development and production domains
+// Updated CORS configuration
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "http://localhost:3000", // Common React dev port
+      "http://localhost:3000", 
       "https://www.vibenweb.xyz",
-      "https://vibenweb.xyz", // Including non-www version
-      // Add any other domains you might deploy to
+      "https://vibenweb.xyz", // This was missing before
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "Accept"],
-    credentials: true, // Critical for cookies & auth
-    maxAge: 86400, // Cache preflight request for 24 hours
+    credentials: true,
+    maxAge: 86400,
   })
 );
-
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
