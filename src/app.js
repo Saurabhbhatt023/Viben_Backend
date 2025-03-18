@@ -2,9 +2,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const { scheduleEmailJob } = require('./utils/cronjob');
 require('dotenv').config()
 
 require("dotenv").config();
+require("./utils/cronjob")
 
 const app = express();
 
@@ -12,7 +14,7 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({ 
-  origin: "http://localhost:5173", 
+  origin: ["http://localhost:5173", "https://www.vibenweb.xyz"], 
   credentials: true 
 }));
 
@@ -32,6 +34,10 @@ const connectDb = async () => {
   try {
     await mongoose.connect(process.env.DB_CONNECTION_SECRET);
     console.log("Database connected successfully");
+    
+    // Schedule the email job to run 4 minutes from now
+    scheduleEmailJob(4);
+    
   } catch (err) {
     console.error("Database connection failed:", err);
   }
