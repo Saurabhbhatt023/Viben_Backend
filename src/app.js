@@ -2,50 +2,54 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
-const { scheduleEmailJob } = require('./utils/cronjob');
-require('dotenv').config()
-
+const { scheduleEmailJob } = require("./utils/cronjob");
 require("dotenv").config();
-require("./utils/cronjob")
 
 const app = express();
 
-// Middleware
-app.use(express.json());
-app.use(cookieParser());
-app.use(cors({ 
-  origin: ["http://localhost:5173", "https://www.vibenweb.xyz"], 
-  credentials: true 
-}));
+// ✅ FIXED CORS: Allows frontend (Netlify) & local dev
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://www.vibenweb.xyz"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
 
-// Routes
-const authRouter = require('./routes/auth');
-const profileRouter = require('./routes/profile');
-const requestRouter = require('./routes/request');
+// ✅ Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// ✅ Routes
+const authRouter = require("./routes/auth");
+const profileRouter = require("./routes/profile");
+const requestRouter = require("./routes/request");
 const userRouter = require("./routes/user");
 
-app.use("/", authRouter);
-app.use("/", profileRouter);
-app.use("/", requestRouter);
-app.use("/", userRouter);
+// ✅ FIXED ROUTE PREFIXES (Now correctly uses `/api`)
+app.use("/api", authRouter);
+app.use("/api", profileRouter);
+app.use("/api", requestRouter);
+app.use("/api", userRouter);
 
-// Database Connection
+// ✅ Database Connection
 const connectDb = async () => {
   try {
     await mongoose.connect(process.env.DB_CONNECTION_SECRET);
-    console.log("Database connected successfully");
-    
-    // Schedule the email job to run 4 minutes from now
+    console.log("✅ Database connected successfully");
+
+    // ✅ Schedule the email job to run 4 minutes from now
     scheduleEmailJob(4);
-    
   } catch (err) {
-    console.error("Database connection failed:", err);
+    console.error("❌ Database connection failed:", err);
   }
 };
 
-// Connect to Database and Start Server
+// ✅ Connect to Database and Start Server
 connectDb().then(() => {
-  app.listen(process.env.PORT, () => {
-    console.log("Server is running on http://localhost:7777");
+  const PORT = process.env.PORT || 7777;
+  app.listen(PORT, () => {
+    console.log(`✅ Server is running on http://localhost:${PORT}`);
   });
 });
