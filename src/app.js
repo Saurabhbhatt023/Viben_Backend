@@ -7,49 +7,64 @@ require("dotenv").config();
 
 const app = express();
 
-// ✅ FIXED CORS: Allows frontend (Netlify) & local dev
+// Updated CORS to include both development and production domains
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://www.vibenweb.xyz"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000", // Common React dev port
+      "https://www.vibenweb.xyz",
+      "https://vibenweb.xyz", // Including non-www version
+      // Add any other domains you might deploy to
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    credentials: true, // Critical for cookies & auth
+    maxAge: 86400, // Cache preflight request for 24 hours
   })
 );
 
-// ✅ Middleware
+// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// ✅ Routes
+// Routes
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 const requestRouter = require("./routes/request");
 const userRouter = require("./routes/user");
 
-// ✅ FIXED ROUTE PREFIXES (Now correctly uses `/api`)
+// API routes with `/api` prefix
 app.use("/api", authRouter);
 app.use("/api", profileRouter);
 app.use("/api", requestRouter);
 app.use("/api", userRouter);
 
-// ✅ Database Connection
+// Add health check endpoint
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Server is running" });
+});
+
+// Database Connection
 const connectDb = async () => {
   try {
     await mongoose.connect(process.env.DB_CONNECTION_SECRET);
     console.log("✅ Database connected successfully");
 
-    // ✅ Schedule the email job to run 4 minutes from now
+    // Schedule email job
     scheduleEmailJob(4);
   } catch (err) {
     console.error("❌ Database connection failed:", err);
   }
 };
 
-// ✅ Connect to Database and Start Server
+// Start Server
 connectDb().then(() => {
   const PORT = process.env.PORT || 7777;
   app.listen(PORT, () => {
     console.log(`✅ Server is running on http://localhost:${PORT}`);
   });
 });
+
+module.exports = app; // Export for testing purposes
