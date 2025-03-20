@@ -6,14 +6,6 @@ const User = require("../models/user");
 
 const authRouter = express.Router();
 
-// ✅ Add CORS Headers for Netlify Frontend
-authRouter.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://www.vibenweb.xyz"); // ✅ Allow Netlify
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-  next();
-});
 
 // ✅ SIGNUP ROUTE: Registers a new user
 authRouter.post("/signup", async (req, res) => {
