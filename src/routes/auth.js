@@ -1,136 +1,63 @@
 const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const { validateSignUpData } = require("../utils/validation");
 const User = require("../models/user");
+const { auth } = require("../middlewares/auth")
+const router = express.Router();
 
-const authRouter = express.Router();
-
-
-// ✅ SIGNUP ROUTE: Registers a new user
-authRouter.post("/signup", async (req, res) => {
-  try {
-    validateSignUpData(req);
-
-    const {
-      firstName,
-      lastName,
-      emailId,
-      password,
-      age,
-      gender,
-      photoUrl,
-      about,
-      skills,
-      location,
-      relationshipStatus,
-      hobbies,
-      phoneNumber,
-      socialLinks
-    } = req.body;
-
-    // ✅ Hash Password Before Saving
-    const passwordHash = await bcrypt.hash(password, 10);
-
-    const user = new User({
-      firstName,
-      lastName,
-      emailId,
-      password: passwordHash,
-      age,
-      gender,
-      photoUrl,
-      about,
-      skills: skills || [],
-      location,
-      relationshipStatus,
-      hobbies: hobbies || [],
-      phoneNumber,
-      socialLinks: socialLinks || []
-    });
-
-    await user.save();
-    console.log("User saved:", user);
-
-    res.status(201).json({
-      success: true,
-      message: "User Added Successfully",
-      data: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        emailId: user.emailId
-      }
-    });
-  } catch (error) {
-    console.error("Signup error:", error);
-    res.status(400).json({
-      success: false,
-      message: "Error adding user: " + error.message
-    });
-  }
-});
-
-// ✅ LOGIN ROUTE: Logs in a user
-authRouter.post("/login", async (req, res) => {
+// Login route
+router.post("/login", async (req, res) => {
   try {
     const { emailId, password } = req.body;
+    
+    if (!emailId || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    // Find user by email
     const user = await User.findOne({ emailId });
-
+    
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // ✅ Fix Password Validation
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Validate password
+    const isPasswordValid = await user.validatePassword(password);
+    
     if (!isPasswordValid) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // ✅ Generate JWT Token
-    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
-    // ✅ Send Secure Cookie
+    // Generate JWT token
+    const token = await user.getJWT();
+    
+    // FIXED: Proper cookie configuration for cross-origin requests
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-      maxAge: 24 * 60 * 60 * 1000 // 1 day
+      secure: true, // Required for HTTPS
+      sameSite: "None", // Critical for cross-origin requests
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      path: "/", // Ensure cookie is sent for all paths
     });
 
-    res.json({
-      success: true,
-      message: "Login successful",
-      data: user
+    // Return user data without sensitive information
+    const userData = {
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      emailId: user.emailId,
+      photoUrl: user.photoUrl,
+      // Include other non-sensitive fields as needed
+    };
+
+    return res.status(200).json({ 
+      message: "Login successful", 
+      data: userData 
     });
-  } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Something went wrong"
-    });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
-// ✅ LOGOUT ROUTE: Clears the token
-authRouter.post("/logout", async (req, res) => {
-  try {
-    res.cookie("token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      expires: new Date(0)
-    });
+// Additional routes...
 
-    res.json({
-      success: true,
-      message: "Logged out successfully"
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Logout failed"
-    });
-  }
-});
-
-module.exports = authRouter;
+module.exports = router;
