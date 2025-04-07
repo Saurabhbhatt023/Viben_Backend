@@ -110,18 +110,43 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Methods remain the same
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+  const user = this;
+  
+  // Only hash the password if it has been modified (or is new)
+  if (!user.isModified('password')) return next();
+  
+  try {
+    // Generate salt
+    const salt = await bcrypt.genSalt(10);
+    
+    // Hash the password with the new salt
+    user.password = await bcrypt.hash(user.password, salt);
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// JWT token generation - updated to use consistent id field
 userSchema.methods.getJWT = async function () {
   const user = this;
-  const token = await jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+  const token = await jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
   return token;
-}
+};
 
+// Password validation method
 userSchema.methods.validatePassword = async function (passwordInputByUser) {
   const user = this;
   const passwordHash = user.password;
   const isPasswordValid = await bcrypt.compare(passwordInputByUser, passwordHash);
   return isPasswordValid;
-}
+};
+
+// Alias for validatePassword for compatibility
+userSchema.methods.comparePassword = async function (passwordInputByUser) {
+  return this.validatePassword(passwordInputByUser);
+};
 
 module.exports = mongoose.model("User", userSchema);
