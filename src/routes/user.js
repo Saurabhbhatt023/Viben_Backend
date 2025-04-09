@@ -7,6 +7,8 @@ const userRouter = express.Router();
 const USER_SAFE_DATA = "firstName lastName photoUrl age gender about skills";
 
 // Get all connections and requests
+// In user.js - Let's modify this function
+// Modify user.js - `/user/connections` route
 userRouter.get("/user/connections", auth, async (req, res) => {
   try {
     const loggedInUser = req.user;
@@ -19,30 +21,49 @@ userRouter.get("/user/connections", auth, async (req, res) => {
       ]
     }).populate('fromUserId toUserId', USER_SAFE_DATA);
 
-    // Process and format the connections
-    const formattedConnections = await Promise.all(allConnections.map(async (connection) => {
-      // Determine if logged in user is sender or receiver
-      const isSender = connection.fromUserId._id.toString() === loggedInUser._id.toString();
-      const otherUser = isSender ? connection.toUserId : connection.fromUserId;
+    console.log("All connections found:", allConnections.length);
 
-      return {
-        _id: otherUser._id,
-        firstName: otherUser.firstName,
-        lastName: otherUser.lastName,
-        photoUrl: otherUser.photoUrl || "https://geographyandyou.com/images/user-profile.png",
-        about: otherUser.about || "This is a default about of the user!",
-        skills: otherUser.skills || [],
-        age: otherUser.age || null,
-        gender: otherUser.gender || null,
-        connectionId: connection._id,
-        status: connection.status,
-        isSender,
-        createdAt: connection.createdAt,
-        updatedAt: connection.updatedAt
-      };
-    }));
+    // Add defensive checks
+    const formattedConnections = [];
+    
+    for (const connection of allConnections) {
+      try {
+        // Check if both users are populated correctly
+        if (!connection.fromUserId || !connection.toUserId) {
+          console.log("Skipping connection with missing user:", connection._id);
+          continue;
+        }
+        
+        const isSender = connection.fromUserId._id.toString() === loggedInUser._id.toString();
+        const otherUser = isSender ? connection.toUserId : connection.fromUserId;
+        
+        if (!otherUser || !otherUser._id) {
+          console.log("Other user not found for connection:", connection._id);
+          continue;
+        }
 
-    // Separate connections by status
+        formattedConnections.push({
+          _id: otherUser._id,
+          firstName: otherUser.firstName || "Unknown",
+          lastName: otherUser.lastName || "User",
+          photoUrl: otherUser.photoUrl || "/default-avatar.png", // Use a local image instead
+          about: otherUser.about || "This is a default about of the user!",
+          skills: otherUser.skills || [],
+          age: otherUser.age || null,
+          gender: otherUser.gender || null,
+          connectionId: connection._id,
+          status: connection.status,
+          isSender,
+          createdAt: connection.createdAt,
+          updatedAt: connection.updatedAt
+        });
+      } catch (err) {
+        console.error("Error processing connection:", err, connection);
+        // Skip this connection but continue with others
+      }
+    }
+
+    // Rest of the code remains the same
     const connections = {
       accepted: formattedConnections.filter(conn => conn.status === "accepted"),
       interested: formattedConnections.filter(conn => conn.status === "interested"),
@@ -63,7 +84,6 @@ userRouter.get("/user/connections", auth, async (req, res) => {
     });
   }
 });
-
 // Get received requests
 userRouter.get("/user/requests/received", auth, async (req, res) => {
   try {
@@ -135,10 +155,10 @@ userRouter.get("/feed", auth, async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    res.json({
-      success: true,
-      data: users
-    });
+      res.json({
+        success: true,
+        data: users  // Return the users array instead of connections
+      });
 
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
