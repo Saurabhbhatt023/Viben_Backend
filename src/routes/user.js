@@ -9,6 +9,7 @@ const USER_SAFE_DATA = "firstName lastName photoUrl age gender about skills";
 // Get all connections and requests
 // In user.js - Let's modify this function
 // Modify user.js - `/user/connections` route
+// In user.js - Improve the connections formatting logic
 userRouter.get("/user/connections", auth, async (req, res) => {
   try {
     const loggedInUser = req.user;
@@ -34,7 +35,10 @@ userRouter.get("/user/connections", auth, async (req, res) => {
           continue;
         }
         
+        // Determine if logged-in user is the sender
         const isSender = connection.fromUserId._id.toString() === loggedInUser._id.toString();
+        
+        // Get the other user (the one who is not the logged-in user)
         const otherUser = isSender ? connection.toUserId : connection.fromUserId;
         
         if (!otherUser || !otherUser._id) {
@@ -42,11 +46,12 @@ userRouter.get("/user/connections", auth, async (req, res) => {
           continue;
         }
 
+        // Only add the connection if it has the relevant status
         formattedConnections.push({
           _id: otherUser._id,
           firstName: otherUser.firstName || "Unknown",
           lastName: otherUser.lastName || "User",
-          photoUrl: otherUser.photoUrl || "/default-avatar.png", // Use a local image instead
+          photoUrl: otherUser.photoUrl || "/default-avatar.png",
           about: otherUser.about || "This is a default about of the user!",
           skills: otherUser.skills || [],
           age: otherUser.age || null,
@@ -59,12 +64,12 @@ userRouter.get("/user/connections", auth, async (req, res) => {
         });
       } catch (err) {
         console.error("Error processing connection:", err, connection);
-        // Skip this connection but continue with others
       }
     }
 
-    // Rest of the code remains the same
+    // Filter connections by status
     const connections = {
+      // Only include connections that are accepted
       accepted: formattedConnections.filter(conn => conn.status === "accepted"),
       interested: formattedConnections.filter(conn => conn.status === "interested"),
       ignored: formattedConnections.filter(conn => conn.status === "ignored"),
@@ -124,42 +129,52 @@ userRouter.get("/user/requests/received", auth, async (req, res) => {
   }
 });
 
+// In user.js - Fix the feed endpoint
 userRouter.get("/feed", auth, async (req, res) => {
   try {
     const loggedInUser = req.user;
     const page = parseInt(req.query.page) || 1;
-    let  limit = parseInt(req.query.limit) || 10;
-    limit  = limit > 50 ? 50 : limit;
+    let limit = parseInt(req.query.limit) || 10;
+    limit = limit > 50 ? 50 : limit;
     const skip = (page - 1) * limit;
 
-    // Fetch connection requests involving the logged-in user
+    // Fetch ALL connection requests involving the logged-in user
     const connections = await ConnectionRequest.find({
-      $or: [{ fromUserId: loggedInUser._id }, { toUserId: loggedInUser._id }]
-    }).select("fromUserId toUserId");
+      $or: [
+        { fromUserId: loggedInUser._id },
+        { toUserId: loggedInUser._id }
+      ]
+    }).select("fromUserId toUserId status");
 
-    // Create a set of users to hide from the feed
-    const hideUserFromFeed = new Set();
-    connections.forEach((req) => {
-      hideUserFromFeed.add(req.fromUserId.toString());
-      hideUserFromFeed.add(req.toUserId.toString());
+    // Create a set of users to exclude from the feed
+    const hideUserIds = new Set();
+    
+    // Add the logged-in user to the exclusion list
+    hideUserIds.add(loggedInUser._id.toString());
+    
+    // For each connection, add the other user to the exclusion list
+    connections.forEach((connection) => {
+      if (connection.fromUserId.toString() === loggedInUser._id.toString()) {
+        // The logged-in user sent this request - exclude the recipient
+        hideUserIds.add(connection.toUserId.toString());
+      } else {
+        // The logged-in user received this request - exclude the sender
+        hideUserIds.add(connection.fromUserId.toString());
+      }
     });
 
-    // Exclude connected users and the logged-in user from the feed
-    hideUserFromFeed.add(loggedInUser._id.toString());
-
-    // Fetch users who are not in the connections list
+    // Fetch users who aren't in the exclusion list
     const users = await User.find({
-      _id: { $nin: Array.from(hideUserFromFeed) }
+      _id: { $nin: Array.from(hideUserIds) }
     })
       .select(USER_SAFE_DATA)
       .skip(skip)
       .limit(limit);
 
-      res.json({
-        success: true,
-        data: users  // Return the users array instead of connections
-      });
-
+    res.json({
+      success: true,
+      data: users
+    });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
