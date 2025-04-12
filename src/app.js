@@ -11,6 +11,19 @@ const initializeSocket = require("./utils/socket");
 
 dotenv.config();
 
+// Environment check
+console.log("Environment check:");
+console.log("- NODE_ENV:", process.env.NODE_ENV);
+console.log("- PORT:", process.env.PORT);
+console.log("- JWT_SECRET exists:", !!process.env.JWT_SECRET);
+console.log("- DB_CONNECTION_SECRET exists:", !!process.env.DB_CONNECTION_SECRET);
+
+// If JWT_SECRET is missing, provide a fallback
+if (!process.env.JWT_SECRET) {
+  console.warn("⚠️ WARNING: JWT_SECRET not found in environment, using fallback value");
+  process.env.JWT_SECRET = "devtinder_fallback_secret";
+}
+
 const app = express();
 const server = http.createServer(app); // 👈 Must be created before initializing socket
 initializeSocket(server); // 👈 Initialize socket.io with the server

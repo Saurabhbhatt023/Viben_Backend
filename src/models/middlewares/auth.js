@@ -14,8 +14,20 @@ const auth = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Find user by id
-    const user = await User.findById(decoded.id).select('-password');
+    // Add timestamp validation
+    const now = Math.floor(Date.now() / 1000);
+    if (decoded.exp && decoded.exp < now) {
+      return res.status(401).json({ message: "Token expired" });
+    }
+    
+    // Find user by id - handle both id and _id formats that might be used in the token
+    const userId = decoded.id || decoded._id;
+    
+    if (!userId) {
+      return res.status(401).json({ message: "Invalid token format" });
+    }
+    
+    const user = await User.findById(userId).select('-password');
     
     // If no user found, return error
     if (!user) {

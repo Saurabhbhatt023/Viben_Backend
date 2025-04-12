@@ -16,7 +16,19 @@ router.post("/login", async (req, res) => {
         message: "Email and password are required" 
       });
     }
-    
+    router.post("/logout", (req, res) => {
+      console.log("🚪 Logging out user");
+      res.cookie("token", "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? "None" : "Lax",
+        path: "/",
+        expires: new Date(0) // Immediately expire the cookie
+      });
+      
+      console.log("✅ Logout successful");
+      return res.status(200).json({ message: "Logged out successfully" });
+    });
     // Find user by email
     console.log("🔍 Searching for user:", emailId);
     const user = await User.findOne({ emailId });
