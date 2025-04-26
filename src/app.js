@@ -20,7 +20,7 @@ console.log("- DB_CONNECTION_SECRET exists:", !!process.env.DB_CONNECTION_SECRET
 
 // If JWT_SECRET is missing, provide a fallback
 if (!process.env.JWT_SECRET) {
-  console.warn("⚠️ WARNING: JWT_SECRET not found in environment, using fallback value");
+ 
   process.env.JWT_SECRET = "devtinder_fallback_secret";
 }
 
