@@ -1,38 +1,27 @@
-const mongoose  = require('mongoose')
+const mongoose = require('mongoose');
 
- const messageSchema = new mongoose.Schema( {
+const messageSchema = new mongoose.Schema({
+  senderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",  // fixed typo
+    required: true,
+  },
+  text: {
+    type: String,
+    required: true,
+  },
+}, { timestamps: true });
 
-      senderId : {
-        
-           type : mongoose.Schema.Types.ObjectId,
-           red : "User",
-           required : true,
+const chatSchema = new mongoose.Schema({
+  participants: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",  // fixed typo
+      required: true,
+    }
+  ],
+  messages: [messageSchema],  // use an array of messageSchema
+}, { timestamps: true });
 
-          
-      } ,
-
-      text: {
-         type : String,
-         required : true,
-      },
- } , {timestamps: true})
-
-
-
-
-const chatSchema  = new mongoose.Schema({
-
-
-      participants: [{
-        
-        type : moongoose.Schema.Types.ObjectId ,ref: "User", required: true
-
-  } ] ,
-
-  messages : {messageSchema }
-  
-
-})
-
-const  Chat = mongoose.model("Chat" , chatSchema);
-module.exports = {Chat};
+const Chat = mongoose.model("Chat", chatSchema);
+module.exports = { Chat };
